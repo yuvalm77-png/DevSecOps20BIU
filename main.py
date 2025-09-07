@@ -1,17 +1,16 @@
 import os
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect
+from extensions import db  # ✅ import db here
 
-db = SQLAlchemy()
-
-from Models import Job, Applicant, Application, User
 from Routers.job_router import jobs_bp
+
+from Models import Job, Applicant, Application, User  # ✅ safe now
 # ------------------------------------------------------
 
+app = Flask('jobs-api')
 
 def _sqlite_uri(app: Flask) -> str:
-    """בונה URI מוחלט ל-SQLite בתוך instance/ אם הוגדר נתיב יחסי."""
     raw = os.getenv("DATABASE_URL", "sqlite:///instance/app.db")
     if raw.startswith("sqlite:///"):
         filename = os.path.basename(raw.replace("sqlite:///", "")) or "app.db"
@@ -24,12 +23,10 @@ def _sqlite_uri(app: Flask) -> str:
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
 
-    # קונפיג בסיסי
     app.config["SQLALCHEMY_DATABASE_URI"] = _sqlite_uri(app)
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    # אתחול ORM
-    db.init_app(app)
+    db.init_app(app)  # ✅ initialize db
 
     app.register_blueprint(jobs_bp)
 
@@ -37,14 +34,16 @@ def create_app() -> Flask:
         db.create_all()
         print(">>> Tables now:", inspect(db.engine).get_table_names())
 
-    # Healthcheck קטן
     @app.get("/health")
     def health():
         return {"ok": True}, 200
 
     return app
 
+app.register_blueprint(jobs_bp, url_prefix='/jobs')
+#app.register_blueprint(applicant_bp, url_prefix='/applicant')
+
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(debug=True,port=5001)
+    app.run(debug=True, port=5001)

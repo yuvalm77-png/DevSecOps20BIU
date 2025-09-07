@@ -1,5 +1,5 @@
 # טבלת מועמדים
-from app import db
+from extensions import db
 
 class Applicant(db.Model):
     __tablename__ = "applicants"

@@ -1,5 +1,5 @@
 # טבלת משרות
-from app import db
+from extensions import db  # ✅ instead of from app import db
 
 class Job(db.Model):
     __tablename__ = "jobs"
@@ -12,4 +12,9 @@ class Job(db.Model):
     required_experience = db.Column(db.Integer)     # שנות ניסיון
     is_open = db.Column(db.Boolean, default=True)
 
-    applications = db.relationship("Application", back_populates="job", cascade="all, delete-orphan")
+    applications = db.relationship(
+        "Application",
+        back_populates="job",
+        cascade="all, delete-orphan"
+    )
+

@@ -1,4 +1,9 @@
-from app import db
+from extensions import db
+from flask import Blueprint, request, jsonify
+
+
+
+applicant_bp = Blueprint("applicant_bp", __name__, url_prefix="/applicants")
 
 # טבלת קישור מועמדויות
 class Application(db.Model):
