@@ -2,9 +2,9 @@ from flask import Blueprint, request, jsonify
 from extensions import db
 from Models.job import Job
 
-jobs_bp = Blueprint("jobs_bp", __name__, url_prefix="/jobs")
-
-@jobs_bp.get("")
+#jobs_bp = Blueprint('jobs_bp', __name__, url_prefix='/jobs')
+jobs_bp = Blueprint("jobs", __name__, url_prefix="/jobs")
+@jobs_bp.get('/')
 def list_jobs():
     rows = Job.query.order_by(Job.id.desc()).all()
     return jsonify([
@@ -20,7 +20,7 @@ def list_jobs():
         } for j in rows
     ]), 200
 
-@jobs_bp.get("/<int:id>")    #Get the job id
+@jobs_bp.get("/<int:id>")    #Get job by id
 def get_by_id(id):
     job = Job.query.get(id)  # fetch by primary key
     if not job:
@@ -96,6 +96,14 @@ def create_job():
     return jsonify({"id": job.id, "message": "job created"}), 201
 
 
+@jobs_bp.delete("/<int:id>")
+def delete_by_id(id):
+    job = Job.query.get(id)  # fetch by primary key
+    if not job:
+        return jsonify({"error": "The job doesn't exist"}), 404
+    db.session.delete(job)
+    db.session.commit()
+    return jsonify({"status": "Done", "message": f"Job {id} deleted!"}), 200
 
  #
 # from flask import Flask, request
@@ -161,34 +169,3 @@ def create_job():
 #             cars.remove(car)
 #     return {"status": "Done", "message": "deleted !"}
 #
-#
-# @app.post('/cars')
-# def add_new_car():
-#     # print(request.json)
-#     car = request.json
-#     if car_validator(car, cars):
-#         cars.append(car)
-#         return 'ok', 201
-#     else:
-#         return 'already exists', 201
-#
-#
-# @app.put('/cars/<int:id>')
-# def update_car(id):
-#     data = request.json
-#     for car in cars:
-#         if int(id) == car['id']:
-#             cars.remove(car)
-#             cars.append(data)
-#     return 'done'
-#
-#
-# def car_validator(car, cars):
-#     for c in cars:
-#         if c['id'] == car['id']:
-#             return False
-#     return True
-#
-#
-# if __name__ == '__main__':
-#     app.run(port=5000)
