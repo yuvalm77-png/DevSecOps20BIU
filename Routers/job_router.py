@@ -76,25 +76,26 @@ def update_job_by_id(id):
         "message": "Job updated successfully"
     }), 200
 
-@jobs_bp.post("")
+@jobs_bp.route("/", methods=["POST"])
 def create_job():
     data = request.get_json() or {}
-    if not data.get("title"):
-        return jsonify({"error": "title is required"}), 400
-
-    job = Job(
-        title=data["title"],
-        employment_type=data.get("employment_type"),
-        work_location=data.get("work_location"),
-        description=data.get("description"),
-        required_technologies=data.get("required_technologies"),
-        required_experience=data.get("required_experience"),
-        is_open=bool(data.get("is_open", True)),
-    )
-    db.session.add(job)
-    db.session.commit()
-    return jsonify({"id": job.id, "message": "job created"}), 201
-
+    if isinstance(data, list):
+        jobs = []
+        for item in data:
+            if not item.get("title"):
+                return jsonify({"error": "Title is required"}), 400
+            job = Job(**item)
+            jobs.append(job)
+        db.session.add_all(jobs)
+        db.session.commit()
+        return jsonify([{"id": j.id, "title": j.title} for j in jobs]), 201
+    else:
+        if not data.get("title"):
+            return jsonify({"error": "Title is required"}), 400
+        job = Job(**data)
+        db.session.add(job)
+        db.session.commit()
+        return jsonify({"id": job.id, "title": job.title}), 201
 
 @jobs_bp.delete("/<int:id>")
 def delete_by_id(id):
@@ -105,67 +106,3 @@ def delete_by_id(id):
     db.session.commit()
     return jsonify({"status": "Done", "message": f"Job {id} deleted!"}), 200
 
- #
-# from flask import Flask, request
-#
-# import application
-#
-# # car -> dict
-# # car - > make : str
-# #       > model: str
-# #       > cc: int
-# #       > hp: int
-# #       > year: int
-# #       > color: str
-#
-#
-# cars = [
-#     {"id": 1, "make": "tesla", "model": "s", "cc": 0, "hp": 1024, "year": 2022, "color": "black", },
-#     {"id": 2, "make": "bmw", "model": "435i", "cc": 3600, "hp": 430, "year": 1991, "color": "grey", }
-# ]
-# AUTO_ID = 4
-#
-# # endpoints:
-# # GET    /cars -> all the cars
-# # GET    /cars/<id> -> single car
-# # POST   /cars -> add new car
-# # PUT    /cars/<id> -> change car
-# # DELETE /cars -> delete all cars
-#
-#
-# app = Flask('cars_api')
-#
-#
-# @app.get('/')
-# def home_page():
-#     return 'welcome to cars api '
-#
-#
-# # get all cars
-# @app.get('/cars')
-# def get_all():
-#     return cars
-#
-#
-# @app.get('/cars/<id>')
-# def get_by_id(id):
-#     id = int(id)
-#     for car in cars:
-#         if car['id'] == id:
-#             return car
-#     return 'not found', 404
-#
-#
-# @app.delete('/cars')
-# def delete_all():
-#     cars.clear()
-#     return {"status": "Done", "message": "deleted !"}
-#
-#
-# @app.delete('/cars/<int:id>')
-# def delete_by_id(id):
-#     for car in cars:
-#         if car['id'] == id:
-#             cars.remove(car)
-#     return {"status": "Done", "message": "deleted !"}
-#

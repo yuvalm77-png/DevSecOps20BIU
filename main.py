@@ -5,15 +5,10 @@ from extensions import db  # ✅ import db here
 
 from Routers.job_router import jobs_bp
 from Routers.applicant_router import applicants_bp
+from Routers.application_router import apply_bp
 
 from Models import Job, Applicant, Application, User  # ✅ safe now
 # ------------------------------------------------------
-
-app = Flask('jobs-api')
-
-app.register_blueprint(jobs_bp, url_prefix='/jobs')
-app.register_blueprint(applicants_bp, url_prefix='/applicants')
-
 
 def _sqlite_uri(app: Flask) -> str:
     raw = os.getenv("DATABASE_URL", "sqlite:///instance/app.db")
@@ -33,8 +28,10 @@ def create_app() -> Flask:
 
     db.init_app(app)  # ✅ initialize db
 
-    app.register_blueprint(jobs_bp)
+    app.register_blueprint(jobs_bp, url_prefix="/jobs")
     app.register_blueprint(applicants_bp, url_prefix="/applicants")
+    app.register_blueprint(apply_bp, url_prefix="/apply")
+
     with app.app_context():
         db.create_all()
         print(">>> Tables now:", inspect(db.engine).get_table_names())
@@ -43,15 +40,14 @@ def create_app() -> Flask:
     def health():
         return {"ok": True}, 200
 
+    @app.route('/')
+    def homepage():
+        return 'hello'
+
     return app
-
-
-#app.register_blueprint(applicant_bp, url_prefix='/applicant')
-@app.route('/')
-def homepage():
-    return 'hello'
 
 
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True, port=5001)
+
