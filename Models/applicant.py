@@ -6,7 +6,7 @@ from extensions import db
 class Applicant(db.Model):
     __tablename__ = "applicants"
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True , nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True , nullable=True, index=True)
 
     name = db.Column(db.String(200),nullable=False)
     languages = db.Column(db.Text)          # "Python, Bash, Go"
