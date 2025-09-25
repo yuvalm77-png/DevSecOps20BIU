@@ -1,5 +1,4 @@
-# Job table
-from extensions import db  # ✅ instead of from app import db
+from extensions import db
 
 class Job(db.Model):
     __tablename__ = "jobs"
@@ -11,6 +10,7 @@ class Job(db.Model):
     required_technologies = db.Column(db.Text)      # "AWS, Docker, K8s"
     required_experience = db.Column(db.Integer)     # Experience in years
     is_open = db.Column(db.Boolean, default=True)
+    publisher_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
 
     applications = db.relationship(
         "Application",
@@ -18,3 +18,4 @@ class Job(db.Model):
         cascade="all, delete-orphan"
     )
 
+    publisher = db.relationship("User", back_populates="published_jobs")
