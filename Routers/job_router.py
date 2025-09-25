@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
 from extensions import db
 from Models.job import Job
+from flask_jwt_extended import jwt_required
+from services.auth_utils import admin_required
 
-#jobs_bp = Blueprint('jobs_bp', __name__, url_prefix='/jobs')
 jobs_bp = Blueprint("jobs", __name__, url_prefix="/jobs")
+
 @jobs_bp.get('/')
 def list_jobs():
     rows = Job.query.order_by(Job.id.desc()).all()
@@ -77,6 +79,8 @@ def update_job_by_id(id):
     }), 200
 
 @jobs_bp.route("/", methods=["POST"])
+@jwt_required()
+@admin_required
 def create_job():
     data = request.get_json() or {}
     if isinstance(data, list):
@@ -98,6 +102,8 @@ def create_job():
         return jsonify({"id": job.id, "title": job.title}), 201
 
 @jobs_bp.delete("/<int:id>")
+@jwt_required()
+@admin_required
 def delete_by_id(id):
     job = Job.query.get(id)  # fetch by primary key
     if not job:
