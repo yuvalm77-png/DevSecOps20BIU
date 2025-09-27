@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, render_template
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from sqlalchemy import inspect,event
@@ -14,6 +14,7 @@ from Routers.applicant_router import applicants_bp
 from Routers.application_router import apply_bp
 from Routers.users_router import users_bp
 from Routers.auth_router import auth_bp
+from Routers.admin_router import admin_bp
 from Models import Job, Applicant, Application, User  # ✅ safe now
 # ------------------------------------------------------
 
@@ -34,7 +35,7 @@ def _sqlite_uri(app: Flask) -> str:
     return raw
 
 def init_security_and_cors(app: Flask):
-    app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret")
+    app.config["JWT_SECRET_KEY"] = "my-debug-secret-key-123"
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
     app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=7)
     app.config["JWT_TOKEN_LOCATION"] = ["headers"]
@@ -68,6 +69,7 @@ def create_app() -> Flask:
     app.register_blueprint(apply_bp, url_prefix="/apply")
     app.register_blueprint(users_bp, url_prefix="/users")
     app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(admin_bp, url_prefix="/admin")
     with app.app_context():
         db.create_all()
         print(">>> Tables now:", inspect(db.engine).get_table_names())
@@ -76,14 +78,16 @@ def create_app() -> Flask:
     def health():
         return {"ok": True}, 200
 
+    from flask import render_template
+    
     @app.route('/')
     def homepage():
-        return 'hello'
-
+        jobs = Job.query.all()
+        return render_template('home.html', jobs=jobs)
     return app
 
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5001, use_reloader=False)
 

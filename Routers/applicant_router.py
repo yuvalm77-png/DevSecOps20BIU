@@ -1,4 +1,6 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required
+from services.auth_utils import admin_required
 
 from Models import Application
 from extensions import db
@@ -23,25 +25,16 @@ def applicants_list_jobs():
     ]), 200
 
 @applicants_bp.route("/", methods=["POST"])
+@jwt_required()
+@admin_required
 def create_applicant():
-    data = request.get_json()
-    if isinstance(data, list):
-        applicants = []
-        for item in data:
-            if not item.get("name") or not item.get("resume_path"):
-                return jsonify({"error": "Name and resume_path are required"}), 400
-            applicant = Applicant(**item)
-            applicants.append(applicant)
-        db.session.add_all(applicants)
-        db.session.commit()
-        return jsonify([{"id": a.id, "name": a.name} for a in applicants]), 201
-    else:
-        if not data.get("name") or not data.get("resume_path"):
-            return jsonify({"error": "Name and resume_path are required"}), 400
-        applicant = Applicant(**data)
-        db.session.add(applicant)
-        db.session.commit()
-        return jsonify({"id": applicant.id, "name": applicant.name}), 201
+    data = request.form
+    if not data.get("name") or not data.get("resume_path"):
+        return jsonify({"error": "Name and resume_path are required"}), 400
+    applicant = Applicant(**data)
+    db.session.add(applicant)
+    db.session.commit()
+    return jsonify({"id": applicant.id, "name": applicant.name}), 201
 
 
 

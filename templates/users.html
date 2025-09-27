@@ -1,0 +1,31 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Users{% endblock %}
+
+{% block content %}
+<h1 class="display-4 mt-3 mb-3">Users</h1>
+<div class="d-flex justify-content-end mb-3">
+    <a href="/admin/add_applicant" class="btn btn-primary">Add User</a>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Is Admin</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.is_admin }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

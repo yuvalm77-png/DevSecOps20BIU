@@ -82,24 +82,13 @@ def update_job_by_id(id):
 @jwt_required()
 @admin_required
 def create_job():
-    data = request.get_json() or {}
-    if isinstance(data, list):
-        jobs = []
-        for item in data:
-            if not item.get("title"):
-                return jsonify({"error": "Title is required"}), 400
-            job = Job(**item)
-            jobs.append(job)
-        db.session.add_all(jobs)
-        db.session.commit()
-        return jsonify([{"id": j.id, "title": j.title} for j in jobs]), 201
-    else:
-        if not data.get("title"):
-            return jsonify({"error": "Title is required"}), 400
-        job = Job(**data)
-        db.session.add(job)
-        db.session.commit()
-        return jsonify({"id": job.id, "title": job.title}), 201
+    data = request.form
+    if not data.get("title"):
+        return jsonify({"error": "Title is required"}), 400
+    job = Job(**data)
+    db.session.add(job)
+    db.session.commit()
+    return jsonify({"id": job.id, "title": job.title}), 201
 
 @jobs_bp.delete("/<int:id>")
 @jwt_required()

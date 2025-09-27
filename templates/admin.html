@@ -1,0 +1,31 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<h1 class="display-4 mt-3 mb-3">Admin Dashboard</h1>
+<div class="list-group">
+    <button class="list-group-item list-group-item-action" onclick="loadPage('/admin/users')">Manage Users</button>
+    <button class="list-group-item list-group-item-action" onclick="loadPage('/admin/jobs')">Manage Jobs</button>
+</div>
+
+<script>
+async function loadPage(url) {
+    const token = localStorage.getItem("access_token");
+    const res = await fetch(url, {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+    if (res.ok) {
+        const html = await res.text();
+        document.open();
+        document.write(html);
+        document.close();
+    } else {
+        alert("Unauthorized, please login again");
+        window.location.href = "/auth/login";
+    }
+}
+</script>
+{% endblock %}

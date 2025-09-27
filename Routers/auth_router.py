@@ -1,5 +1,4 @@
-# Routers/auth_router.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 from flask_jwt_extended import (
     create_access_token, create_refresh_token,
     jwt_required, get_jwt, get_jwt_identity
@@ -9,9 +8,17 @@ from Models.user import User
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
+@auth_bp.route("/login", methods=["GET"])
+def login_page():
+    return render_template("login.html")
+
+@auth_bp.route("/register", methods=["GET"])
+def register_page():
+    return render_template("register.html")
+
 @auth_bp.post("/register")
 def register():
-    data = request.get_json() or {}
+    data = request.form
     username = data.get("username")
     email = data.get("email")
     password = data.get("password")
@@ -21,7 +28,7 @@ def register():
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "Email already in use"}), 409
 
-    is_admin = bool(data.get("is_admin", False))
+    is_admin = True if data.get("is_admin") == 'on' else False
     user = User(username=username, email=email, is_admin=is_admin)
     user.set_password(password)
     db.session.add(user)
@@ -36,9 +43,9 @@ def register():
         "refresh_token": refresh
     }), 201
 
-@auth_bp.post("/login")
+@auth_bp.post("/login", strict_slashes=False)
 def login():
-    data = request.get_json() or {}
+    data = request.form
     email = data.get("email")
     password = data.get("password")
     if not all([email, password]):

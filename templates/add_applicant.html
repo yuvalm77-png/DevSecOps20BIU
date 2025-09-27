@@ -1,0 +1,61 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Add Applicant{% endblock %}
+
+{% block content %}
+<h1 class="display-4 mt-3 mb-3">Add Applicant</h1>
+<form id="add-applicant-form">
+    <div class="mb-3">
+        <label for="name" class="form-label">Name</label>
+        <input type="text" class="form-control" id="name" name="name">
+    </div>
+    <div class="mb-3">
+        <label for="languages" class="form-label">Languages</label>
+        <input type="text" class="form-control" id="languages" name="languages">
+    </div>
+    <div class="mb-3">
+        <label for="technologies" class="form-label">Technologies</label>
+        <input type="text" class="form-control" id="technologies" name="technologies">
+    </div>
+    <div class="mb-3">
+        <label for="flagship_project" class="form-label">Flagship Project</label>
+        <input type="text" class="form-control" id="flagship_project" name="flagship_project">
+    </div>
+    <div class="mb-3">
+        <label for="last_job" class="form-label">Last Job</label>
+        <input type="text" class="form-control" id="last_job" name="last_job">
+    </div>
+    <div class="mb-3">
+        <label for="education" class="form-label">Education</label>
+        <input type="text" class="form-control" id="education" name="education">
+    </div>
+    <div class="mb-3">
+        <label for="years_experience" class="form-label">Years of Experience</label>
+        <input type="number" class="form-control" id="years_experience" name="years_experience">
+    </div>
+    <div class="mb-3">
+        <label for="resume_path" class="form-label">Resume Path</label>
+        <input type="text" class="form-control" id="resume_path" name="resume_path">
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('add-applicant-form').addEventListener('submit', async function(event) {
+        event.preventDefault();
+        const formData = new FormData(this);
+        const response = await fetchWithAuth('/applicants/', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (response.ok) {
+            window.location.href = '/admin/users';
+        } else {
+            alert(data.error);
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Jobs{% endblock %}
+
+{% block content %}
+<h1 class="display-4 mt-3 mb-3">Jobs</h1>
+<div class="d-flex justify-content-end mb-3">
+    <a href="/admin/add_job" class="btn btn-primary">Add Job</a>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Employment Type</th>
+            <th>Work Location</th>
+            <th>Is Open</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for job in jobs %}
+        <tr>
+            <td>{{ job.id }}</td>
+            <td>{{ job.title }}</td>
+            <td>{{ job.employment_type }}</td>
+            <td>{{ job.work_location }}</td>
+            <td>{{ job.is_open }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
