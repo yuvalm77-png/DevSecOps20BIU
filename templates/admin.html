@@ -3,29 +3,44 @@
 {% block title %}Admin Dashboard{% endblock %}
 
 {% block content %}
-<h1 class="display-4 mt-3 mb-3">Admin Dashboard</h1>
-<div class="list-group">
-    <button class="list-group-item list-group-item-action" onclick="loadPage('/admin/users')">Manage Users</button>
-    <button class="list-group-item list-group-item-action" onclick="loadPage('/admin/jobs')">Manage Jobs</button>
+<div class="container mt-4">
+    <h1 class="display-5 mb-4 text-center">⚙️ Admin Dashboard</h1>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <a href="/admin/users" class="text-decoration-none">
+                <div class="card shadow-sm h-100 border-0 hover-card">
+                    <div class="card-body text-center">
+                        <div class="mb-3 fs-1">👤</div>
+                        <h5 class="card-title">Manage Users</h5>
+                        <p class="card-text text-muted">View, add, or remove users and manage admin privileges.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-6">
+            <a href="/admin/jobs" class="text-decoration-none">
+                <div class="card shadow-sm h-100 border-0 hover-card">
+                    <div class="card-body text-center">
+                        <div class="mb-3 fs-1">💼</div>
+                        <h5 class="card-title">Manage Jobs</h5>
+                        <p class="card-text text-muted">Add, update, or close job listings quickly and easily.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
 </div>
 
-<script>
-async function loadPage(url) {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(url, {
-        headers: {
-            "Authorization": "Bearer " + token
-        }
-    });
-    if (res.ok) {
-        const html = await res.text();
-        document.open();
-        document.write(html);
-        document.close();
-    } else {
-        alert("Unauthorized, please login again");
-        window.location.href = "/auth/login";
+<style>
+    .hover-card {
+        border-radius: 12px;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
-}
-</script>
+    .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+</style>
 {% endblock %}
+

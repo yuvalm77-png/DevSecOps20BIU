@@ -10,7 +10,6 @@ const AddJob = () => {
     description: '',
     required_technologies: '',
     required_experience: '',
-    publisher_id: '',
   });
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -63,10 +62,6 @@ const AddJob = () => {
         <div className="mb-3">
           <label htmlFor="required_experience" className="form-label">Required Experience</label>
           <input type="number" className="form-control" id="required_experience" name="required_experience" value={formData.required_experience} onChange={handleChange} />
-        </div>
-        <div className="mb-3">
-          <label htmlFor="publisher_id" className="form-label">Publisher ID</label>
-          <input type="number" className="form-control" id="publisher_id" name="publisher_id" value={formData.publisher_id} onChange={handleChange} />
         </div>
         <button type="submit" className="btn btn-primary">Submit</button>
       </form>

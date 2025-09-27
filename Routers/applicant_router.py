@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, redirect, url_for
 from flask_jwt_extended import jwt_required
 from services.auth_utils import admin_required
 
@@ -34,6 +34,8 @@ def create_applicant():
     applicant = Applicant(**data)
     db.session.add(applicant)
     db.session.commit()
+    if request.headers.get('Content-Type') != 'application/json':
+        return redirect(url_for('admin.users_page'))
     return jsonify({"id": applicant.id, "name": applicant.name}), 201
 
 

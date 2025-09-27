@@ -39,7 +39,7 @@ def init_security_and_cors(app: Flask):
     app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=7)
     # use cookies for JWT instead of headers
     app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
-    app.config["JWT_COOKIE_SECURE"] = False  # True only in production
+    app.config["JWT_COOKIE_CSRF_PROTECT"] = False
     app.config["JWT_ACCESS_COOKIE_PATH"] = "/"
     app.config["JWT_REFRESH_COOKIE_PATH"] = "/auth/refresh"
     app.config["JWT_ALGORITHM"] = "HS256"
@@ -59,12 +59,13 @@ def init_security_and_cors(app: Flask):
     return jwt
 
 def create_app() -> Flask:
-    app = Flask(__name__, instance_relative_config=True)
+    app = Flask(__name__, instance_relative_config=True)   # ← יצירת האפליקציה
+
     load_dotenv()
     app.config["SQLALCHEMY_DATABASE_URI"] = _sqlite_uri(app)
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    db.init_app(app)
+    db.init_app(app)                     # עכשיו זה יעבוד
 
     jwt = init_security_and_cors(app)
 
@@ -74,6 +75,7 @@ def create_app() -> Flask:
     app.register_blueprint(users_bp, url_prefix="/users")
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(admin_bp, url_prefix="/admin")
+
     with app.app_context():
         db.create_all()
         print(">>> Tables now:", inspect(db.engine).get_table_names())
@@ -82,11 +84,17 @@ def create_app() -> Flask:
     def health():
         return {"ok": True}, 200
 
-    @app.route('/')
+    @app.route("/routes")
+    def routes():
+        return str(app.url_map)
+
+    @app.route("/")
     def homepage():
-        jobs = Job.query.all()
-        return render_template('home.html', jobs=jobs)
+        jobs = Job.query.filter_by(is_open=True).all()
+        return render_template("home.html", jobs=jobs)
+
     return app
+
 
 if __name__ == "__main__":
     app = create_app()

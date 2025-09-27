@@ -3,55 +3,47 @@
 {% block title %}Add Job{% endblock %}
 
 {% block content %}
-<h1 class="display-4 mt-3 mb-3">Add Job</h1>
-<form id="add-job-form">
-    <div class="mb-3">
-        <label for="title" class="form-label">Title</label>
-        <input type="text" class="form-control" id="title" name="title">
+<div class="container mt-4">
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-body">
+            <h1 class="h4 mb-4 text-center">➕ Add New Job</h1>
+            <form action="/jobs/" method="POST">
+                <div class="mb-3">
+                    <label for="title" class="form-label">Job Title</label>
+                    <input type="text" class="form-control" id="title" name="title" required>
+                </div>
+                <div class="mb-3">
+                    <label for="employment_type" class="form-label">Employment Type</label>
+                    <select class="form-select" id="employment_type" name="employment_type" required>
+                        <option value="">Select...</option>
+                        <option>Full-Time</option>
+                        <option>Part-Time</option>
+                        <option>Contract</option>
+                        <option>Internship</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="work_location" class="form-label">Work Location</label>
+                    <input type="text" class="form-control" id="work_location" name="work_location" required>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="required_technologies" class="form-label">Required Technologies</label>
+                    <input type="text" class="form-control" id="required_technologies" name="required_technologies" placeholder="e.g. Python, Flask, Docker" required>
+                </div>
+                <div class="mb-3">
+                    <label for="required_experience" class="form-label">Required Experience (years)</label>
+                    <input type="number" min="0" class="form-control" id="required_experience" name="required_experience" required>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg">Submit Job</button>
+                </div>
+            </form>
+        </div>
     </div>
-    <div class="mb-3">
-        <label for="employment_type" class="form-label">Employment Type</label>
-        <input type="text" class="form-control" id="employment_type" name="employment_type">
-    </div>
-    <div class="mb-3">
-        <label for="work_location" class="form-label">Work Location</label>
-        <input type="text" class="form-control" id="work_location" name="work_location">
-    </div>
-    <div class="mb-3">
-        <label for="description" class="form-label">Description</label>
-        <textarea class="form-control" id="description" name="description"></textarea>
-    </div>
-    <div class="mb-3">
-        <label for="required_technologies" class="form-label">Required Technologies</label>
-        <input type="text" class="form-control" id="required_technologies" name="required_technologies">
-    </div>
-    <div class="mb-3">
-        <label for="required_experience" class="form-label">Required Experience</label>
-        <input type="number" class="form-control" id="required_experience" name="required_experience">
-    </div>
-    <div class="mb-3">
-        <label for="publisher_id" class="form-label">Publisher ID</label>
-        <input type="number" class="form-control" id="publisher_id" name="publisher_id">
-    </div>
-    <button type="submit" class="btn btn-primary">Submit</button>
-</form>
+</div>
 {% endblock %}
 
-{% block scripts %}
-<script>
-    document.getElementById('add-job-form').addEventListener('submit', async function(event) {
-        event.preventDefault();
-        const formData = new FormData(this);
-        const response = await fetchWithAuth('/jobs/', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-        if (response.ok) {
-            window.location.href = '/admin/jobs';
-        } else {
-            alert(data.error);
-        }
-    });
-</script>
-{% endblock %}

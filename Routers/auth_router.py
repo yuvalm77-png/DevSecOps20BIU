@@ -1,8 +1,8 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for
 from flask_jwt_extended import (
     create_access_token, create_refresh_token,
     jwt_required, get_jwt, get_jwt_identity,
-    set_access_cookies, set_refresh_cookies
+    set_access_cookies, set_refresh_cookies, unset_jwt_cookies
 )
 from extensions import db
 from Models.user import User
@@ -69,6 +69,12 @@ def login():
     set_refresh_cookies(resp, refresh)
     return resp, 200
 
+@auth_bp.route("/logout")
+def logout():
+    resp = jsonify({"message": "Logged out"})
+    unset_jwt_cookies(resp)
+    return redirect('/', code=302)
+
 @auth_bp.post("/refresh")
 @jwt_required(refresh=True)
 def refresh():
@@ -86,8 +92,10 @@ def refresh():
 @jwt_required()
 def me():
     claims = get_jwt()
+    user = User.query.filter_by(email=claims.get("sub")).first()
     return jsonify({
         "email": claims.get("sub"),
         "user_id": claims.get("user_id"),
-        "is_admin": claims.get("is_admin", False)
+        "is_admin": claims.get("is_admin", False),
+        "username": user.username
     }), 200

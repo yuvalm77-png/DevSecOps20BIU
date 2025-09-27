@@ -1,7 +1,7 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, redirect, url_for
 from extensions import db
 from Models.job import Job
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt
 from services.auth_utils import admin_required
 
 jobs_bp = Blueprint("jobs", __name__, url_prefix="/jobs")
@@ -85,9 +85,26 @@ def create_job():
     data = request.form
     if not data.get("title"):
         return jsonify({"error": "Title is required"}), 400
-    job = Job(**data)
+
+    claims = get_jwt()
+    publisher_id = claims.get("user_id")
+
+    job_data = {
+        "title": data.get("title"),
+        "employment_type": data.get("employment_type"),
+        "work_location": data.get("work_location"),
+        "description": data.get("description"),
+        "required_technologies": data.get("required_technologies"),
+        "required_experience": int(data.get("required_experience")) if data.get("required_experience") else None,
+        "publisher_id": publisher_id,
+    }
+
+    job = Job(**job_data)
     db.session.add(job)
     db.session.commit()
+    # Redirect to the admin jobs page for non-API requests
+    if request.headers.get('Content-Type') != 'application/json':
+        return redirect(url_for('admin.jobs_page'))
     return jsonify({"id": job.id, "title": job.title}), 201
 
 @jobs_bp.delete("/<int:id>")
