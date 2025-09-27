@@ -34,10 +34,10 @@
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    localStorage.setItem('access_token', data.access_token);
-                    window.location.href = '/admin';
+                    // tokens are stored as cookies; simply navigate
+                    window.location.href = '/admin/';
                 } else {
-                    alert(data.error);
+                    alert(data.error || data.msg);
                 }
             } catch (err) {
                 alert('Login failed: ' + err.message);

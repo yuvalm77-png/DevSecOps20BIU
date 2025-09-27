@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from flask import Flask, render_template
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
-from sqlalchemy import inspect,event
+from sqlalchemy import inspect, event
 from sqlalchemy.engine import Engine
 from extensions import db  # ✅ import db here
 from datetime import timedelta
@@ -16,7 +16,6 @@ from Routers.users_router import users_bp
 from Routers.auth_router import auth_bp
 from Routers.admin_router import admin_bp
 from Models import Job, Applicant, Application, User  # ✅ safe now
-# ------------------------------------------------------
 
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -38,19 +37,24 @@ def init_security_and_cors(app: Flask):
     app.config["JWT_SECRET_KEY"] = "my-debug-secret-key-123"
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
     app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=7)
-    app.config["JWT_TOKEN_LOCATION"] = ["headers"]
+    # use cookies for JWT instead of headers
+    app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
+    app.config["JWT_COOKIE_SECURE"] = False  # True only in production
+    app.config["JWT_ACCESS_COOKIE_PATH"] = "/"
+    app.config["JWT_REFRESH_COOKIE_PATH"] = "/auth/refresh"
     app.config["JWT_ALGORITHM"] = "HS256"
 
-    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
+    # allow cookies to be sent via CORS
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
     jwt = JWTManager(app)
     @jwt.unauthorized_loader
     def unauthorized_loader(msg):
-        return {"error": "Missing or invalid token", "detail":msg}, 401
+        return {"error": "Missing or invalid token", "detail": msg}, 401
 
     @jwt.invalid_token_loader
     def invalid_token_loader(msg):
-        return {"error": "Invalid token", "detail":msg}, 422
+        return {"error": "Invalid token", "detail": msg}, 422
 
     return jwt
 
@@ -60,7 +64,7 @@ def create_app() -> Flask:
     app.config["SQLALCHEMY_DATABASE_URI"] = _sqlite_uri(app)
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    db.init_app(app)  # ✅ initialize db
+    db.init_app(app)
 
     jwt = init_security_and_cors(app)
 
@@ -78,16 +82,12 @@ def create_app() -> Flask:
     def health():
         return {"ok": True}, 200
 
-    from flask import render_template
-    
     @app.route('/')
     def homepage():
         jobs = Job.query.all()
         return render_template('home.html', jobs=jobs)
     return app
 
-
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True, port=5001, use_reloader=False)
-

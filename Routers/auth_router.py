@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify, render_template
 from flask_jwt_extended import (
     create_access_token, create_refresh_token,
-    jwt_required, get_jwt, get_jwt_identity
+    jwt_required, get_jwt, get_jwt_identity,
+    set_access_cookies, set_refresh_cookies
 )
 from extensions import db
 from Models.user import User
@@ -37,11 +38,15 @@ def register():
     claims = {"user_id": user.id, "is_admin": user.is_admin}
     access = create_access_token(identity=user.email, additional_claims=claims)
     refresh = create_refresh_token(identity=user.email, additional_claims=claims)
-    return jsonify({
+    resp = jsonify({
         "user": {"id": user.id, "username": user.username, "email": user.email},
         "access_token": access,
         "refresh_token": refresh
-    }), 201
+    })
+    # store JWTs in cookies
+    set_access_cookies(resp, access)
+    set_refresh_cookies(resp, refresh)
+    return resp, 201
 
 @auth_bp.post("/login", strict_slashes=False)
 def login():
@@ -58,7 +63,11 @@ def login():
     claims = {"user_id": user.id, "is_admin": user.is_admin}
     access = create_access_token(identity=user.email, additional_claims=claims)
     refresh = create_refresh_token(identity=user.email, additional_claims=claims)
-    return jsonify({"access_token": access, "refresh_token": refresh}), 200
+    resp = jsonify({"access_token": access, "refresh_token": refresh})
+    # send tokens via cookies instead of headers/localStorage
+    set_access_cookies(resp, access)
+    set_refresh_cookies(resp, refresh)
+    return resp, 200
 
 @auth_bp.post("/refresh")
 @jwt_required(refresh=True)
@@ -69,7 +78,9 @@ def refresh():
         "user_id": claims.get("user_id"),
         "is_admin": claims.get("is_admin", False)
     })
-    return jsonify({"access_token": new_access}), 200
+    resp = jsonify({"access_token": new_access})
+    set_access_cookies(resp, new_access)  # set new access token in cookie
+    return resp, 200
 
 @auth_bp.get("/me")
 @jwt_required()
