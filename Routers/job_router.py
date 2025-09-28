@@ -102,10 +102,20 @@ def create_job():
     job = Job(**job_data)
     db.session.add(job)
     db.session.commit()
-    # Redirect to the admin jobs page for non-API requests
+
     if request.headers.get('Content-Type') != 'application/json':
-        return redirect(url_for('admin.jobs_page'))
-    return jsonify({"id": job.id, "title": job.title}), 201
+        return redirect('/admin/jobs')
+
+    return jsonify({
+        "id": job.id,
+        "title": job.title,
+        "employment_type": job.employment_type,
+        "work_location": job.work_location,
+        "description": job.description,
+        "required_technologies": job.required_technologies,
+        "required_experience": job.required_experience,
+        "is_open": job.is_open
+    }), 201
 
 @jobs_bp.delete("/<int:id>")
 @jwt_required()

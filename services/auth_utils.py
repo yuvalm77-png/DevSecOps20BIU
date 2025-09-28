@@ -20,7 +20,7 @@ def admin_required(fn):
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
         claims = get_jwt()
-        print(f"DEBUG: Claims in admin_required: {claims}")
+        print(f"DEBUG: Claims in admin_required: {str(claims)}")
         print(f"DEBUG: is_admin claim: {claims.get('is_admin', False)}")
         if not claims.get('is_admin', False):
             return jsonify({"error": "Admins only"}), 403
