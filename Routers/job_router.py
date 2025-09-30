@@ -1,14 +1,25 @@
 from flask import Blueprint, request, jsonify
+
+from Models import User
 from extensions import db
 from Models.job import Job
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
 from services.auth_utils import admin_required
 
 jobs_bp = Blueprint("jobs", __name__, url_prefix="/jobs")
 
 @jobs_bp.get('/')
+@jwt_required()
 def list_jobs():
-    rows = Job.query.order_by(Job.id.desc()).all()
+    claims = get_jwt()
+    is_admin = claims.get("is_admin", False)
+    user_id = claims.get("user_id")
+    # Admin can see only the jobs he published,
+    # regular users can see all jobs
+    if is_admin:
+        rows = Job.query.filter_by(publisher_id=user_id).all()
+    else:
+        rows = Job.query.all()
     return jsonify([
         {
             "id": j.id,

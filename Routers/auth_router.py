@@ -26,12 +26,20 @@ def register():
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
+    applicant_id = None
+    # If the user is not an admin, create an associated Applicant record
+    if not is_admin:
+        from Models.applicant import Applicant
+        applicant = Applicant(user_id=user.id, name=username)
+        db.session.add(applicant)
+        db.session.commit()
+        applicant_id = applicant.id
 
     claims = {"user_id": user.id, "is_admin": user.is_admin}
     access = create_access_token(identity=user.email, additional_claims=claims)
     refresh = create_refresh_token(identity=user.email, additional_claims=claims)
     return jsonify({
-        "user": {"id": user.id, "username": user.username, "email": user.email},
+        "user": {"id": user.id, "username": user.username, "email": user.email, "is_admin": user.is_admin, "applicant_id": applicant_id},
         "access_token": access,
         "refresh_token": refresh
     }), 201
@@ -51,7 +59,10 @@ def login():
     claims = {"user_id": user.id, "is_admin": user.is_admin}
     access = create_access_token(identity=user.email, additional_claims=claims)
     refresh = create_refresh_token(identity=user.email, additional_claims=claims)
-    return jsonify({"access_token": access, "refresh_token": refresh}), 200
+    return jsonify({
+        "user": {"id": user.id, "username": user.username, "email": user.email, "is_admin": user.is_admin, "applicant_id": user.applicant.id if user.applicant else None},
+        "access_token": access, "refresh_token": refresh
+    }), 200
 
 @auth_bp.post("/refresh")
 @jwt_required(refresh=True)
@@ -71,5 +82,6 @@ def me():
     return jsonify({
         "email": claims.get("sub"),
         "user_id": claims.get("user_id"),
-        "is_admin": claims.get("is_admin", False)
+        "is_admin": claims.get("is_admin", False),
+        "applicant_id": User.query.get(claims.get("user_id")).applicant.id if User.query.get(claims.get("user_id")).applicant else None
     }), 200

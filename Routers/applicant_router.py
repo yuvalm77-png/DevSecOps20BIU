@@ -125,7 +125,38 @@ def delete_application(job_id: int, applicant_id: int):
                     "applicant_id": applicant_id
                     }), 200
 
+@applicants_bp.route("/<int:id>", methods=["PUT"])
+def update_applicant(id):
+    applicant = Applicant.query.get(id)
+    if not applicant:
+        return jsonify({"error": "Applicant not found"}), 404
 
+    data = request.get_json() or {}
+
+    # Update fields if they exist in the model
+    applicant.name = data.get("name", applicant.name)
+    applicant.languages = data.get("languages", applicant.languages)
+    applicant.technologies = data.get("technologies", applicant.technologies)
+    applicant.flagship_project = data.get("flagship_project", applicant.flagship_project)
+    applicant.last_job = data.get("last_job", applicant.last_job)
+    applicant.education = data.get("education", applicant.education)
+    applicant.years_experience = data.get("years_experience", applicant.years_experience)
+    applicant.resume_path = data.get("resume_path", applicant.resume_path)
+
+    db.session.commit()
+
+    return jsonify({
+        "id": applicant.id,
+        "name": applicant.name,
+        "languages": applicant.languages,
+        "technologies": applicant.technologies,
+        "flagship_project": applicant.flagship_project,
+        "last_job": applicant.last_job,
+        "education": applicant.education,
+        "years_experience": applicant.years_experience,
+        "resume_path": applicant.resume_path,
+        "message": "Applicant updated successfully"
+    }), 200
 
 
 
