@@ -60,7 +60,7 @@ def login():
     access = create_access_token(identity=user.email, additional_claims=claims)
     refresh = create_refresh_token(identity=user.email, additional_claims=claims)
     return jsonify({
-        "user": {"id": user.id, "username": user.username, "email": user.email, "is_admin": user.is_admin, "applicant_id": user.applicant.id if user.applicant else None},
+        "user": {"id": user.id, "username": user.username, "email": user.email, "is_admin": user.is_admin, "applicant_id": user.applicants.id if user.applicants else None},
         "access_token": access, "refresh_token": refresh
     }), 200
 
@@ -79,9 +79,16 @@ def refresh():
 @jwt_required()
 def me():
     claims = get_jwt()
+    user_id = claims.get("user_id")
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
     return jsonify({
         "email": claims.get("sub"),
-        "user_id": claims.get("user_id"),
+        "user_id": user_id,
         "is_admin": claims.get("is_admin", False),
-        "applicant_id": User.query.get(claims.get("user_id")).applicant.id if User.query.get(claims.get("user_id")).applicant else None
+        "applicant_id": user.applicants.id if user.applicants else None
     }), 200
+

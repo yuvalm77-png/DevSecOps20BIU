@@ -1,0 +1,929 @@
+
+--- התחלה של main.py ---
+import os
+import sqlite3
+from dotenv import load_dotenv
+from flask import Flask
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
+from sqlalchemy import inspect,event
+from sqlalchemy.engine import Engine
+from extensions import db  # ✅ import db here
+from datetime import timedelta
+
+from Routers.job_router import jobs_bp
+from Routers.applicant_router import applicants_bp
+from Routers.application_router import apply_bp
+from Routers.users_router import users_bp
+from Routers.auth_router import auth_bp
+from Models import Job, Applicant, Application, User  # ✅ safe now
+# ------------------------------------------------------
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON;")
+        cursor.close()
+
+def _sqlite_uri(app: Flask) -> str:
+    raw = os.getenv("DATABASE_URL", "sqlite:///instance/app.db")
+    if raw.startswith("sqlite:///"):
+        filename = os.path.basename(raw.replace("sqlite:///", "")) or "app.db"
+        os.makedirs(app.instance_path, exist_ok=True)
+        path = os.path.join(app.instance_path, filename)
+        return f"sqlite:///{path}"
+    return raw
+
+def init_security_and_cors(app: Flask):
+    app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret")
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+    app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=7)
+    app.config["JWT_TOKEN_LOCATION"] = ["headers"]
+    app.config["JWT_ALGORITHM"] = "HS256"
+
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
+
+    jwt = JWTManager(app)
+    @jwt.unauthorized_loader
+    def unauthorized_loader(msg):
+        return {"error": "Missing or invalid token", "detail":msg}, 401
+
+    @jwt.invalid_token_loader
+    def invalid_token_loader(msg):
+        return {"error": "Invalid token", "detail":msg}, 422
+
+    return jwt
+
+def create_app() -> Flask:
+    app = Flask(__name__, instance_relative_config=True)
+    load_dotenv()
+    app.config["SQLALCHEMY_DATABASE_URI"] = _sqlite_uri(app)
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    db.init_app(app)  # ✅ initialize db
+
+    jwt = init_security_and_cors(app)
+
+    app.register_blueprint(jobs_bp, url_prefix="/jobs")
+    app.register_blueprint(applicants_bp, url_prefix="/applicants")
+    app.register_blueprint(apply_bp, url_prefix="/apply")
+    app.register_blueprint(users_bp, url_prefix="/users")
+    app.register_blueprint(auth_bp, url_prefix="/auth")
+    with app.app_context():
+        db.create_all()
+        print(">>> Tables now:", inspect(db.engine).get_table_names())
+
+    @app.get("/health")
+    def health():
+        return {"ok": True}, 200
+
+    @app.route('/')
+    def homepage():
+        return 'hello'
+
+    return app
+
+
+if __name__ == "__main__":
+    app = create_app()
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    port = int(os.getenv("FLASK_PORT", "5001"))
+    app.run(host="0.0.0.0", debug=debug, port=port)
+
+
+--- סוף של main.py ---
+
+
+--- התחלה של summary.py ---
+import os
+
+SKIP_DIRS = {"__pycache__", ".venv", "tests"}
+
+def merge_all_py_files_recursively(root_dir: str, output_file: str) -> None:
+    output_abs = os.path.abspath(output_file)
+
+    with open(output_file, "w", encoding="utf-8") as outfile:
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+            # הסרה inplace של תיקיות שלא רוצים להיכנס אליהן
+            dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+
+            for filename in filenames:
+                if not filename.endswith(".py"):
+                    continue
+
+                file_path = os.path.join(dirpath, filename)
+                file_abs = os.path.abspath(file_path)
+
+                # לא לכלול את קובץ הפלט עצמו
+                if file_abs == output_abs:
+                    continue
+
+                try:
+                    with open(file_path, "r", encoding="utf-8") as infile:
+                        content = infile.read()
+                except Exception as e:
+                    print(f"שגיאה בקריאת הקובץ {file_path}: {e}")
+                    continue
+
+                rel_path = os.path.relpath(file_path, root_dir)
+                outfile.write(f"\n--- התחלה של {rel_path} ---\n")
+                outfile.write(content)
+                outfile.write(f"\n--- סוף של {rel_path} ---\n\n")
+
+if __name__ == "__main__":
+    output_filename = "merged_all_py_files.txt"
+    merge_all_py_files_recursively(root_dir=".", output_file=output_filename)
+    print(f"הקובץ המאוחד נוצר בהצלחה בשם: {output_filename}")
+
+--- סוף של summary.py ---
+
+
+--- התחלה של extensions.py ---
+# extensions.py
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+--- סוף של extensions.py ---
+
+
+--- התחלה של services/__init__.py ---
+
+--- סוף של services/__init__.py ---
+
+
+--- התחלה של services/score_computing.py ---
+# services/score_computing.py
+from Models.applicant import Applicant
+from Models.job import Job
+
+def compute_application_score(applicant_id: int, job_id: int) -> int | None:
+
+    applicant = Applicant.query.get(applicant_id)
+    job = Job.query.get(job_id)
+
+    if not applicant or not job:
+        return None
+
+    score = 0
+
+    # ניסיון
+    if applicant.years_experience and job.required_experience:
+        if applicant.years_experience >= job.required_experience:
+            score += 30
+        else:
+            score += (applicant.years_experience / job.required_experience) * 30
+
+    # טכנולוגיות
+    if applicant.technologies and job.required_technologies:
+        applicant_techs = set(map(str.strip, applicant.technologies.split(',')))
+        job_techs = set(map(str.strip, job.required_technologies.split(',')))
+        if job_techs:
+            matching_techs = applicant_techs.intersection(job_techs)
+            score += (len(matching_techs) / len(job_techs)) * 50
+
+    if applicant.education:
+        if "PhD" in applicant.education:
+            score += 20
+        elif "Master" in applicant.education:
+            score += 15
+        elif "Bachelor" in applicant.education:
+            score += 10
+
+    return score
+
+--- סוף של services/score_computing.py ---
+
+
+--- התחלה של services/auth_utils.py ---
+# auth_utils.py
+from functools import wraps
+from flask import jsonify
+from flask_jwt_extended import verify_jwt_in_request, get_jwt
+
+def admin_required(fn):
+    """Decorator that ensures the requester is an admin."""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+        claims = get_jwt()
+        if not claims.get("is_admin", False):
+            return jsonify({"error": "Admins only"}), 403
+        return fn(*args, **kwargs)
+    return wrapper
+
+--- סוף של services/auth_utils.py ---
+
+
+--- התחלה של Routers/auth_router.py ---
+# Routers/auth_router.py
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import (
+    create_access_token, create_refresh_token,
+    jwt_required, get_jwt, get_jwt_identity
+)
+from extensions import db
+from Models.user import User
+
+auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
+
+@auth_bp.post("/register")
+def register():
+    data = request.get_json() or {}
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+    if not all([username, email, password]):
+        return jsonify({"error": "username, email, password are required"}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "Email already in use"}), 409
+
+    is_admin = bool(data.get("is_admin", False))
+    user = User(username=username, email=email, is_admin=is_admin)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    applicant_id = None
+    # If the user is not an admin, create an associated Applicant record
+    if not is_admin:
+        from Models.applicant import Applicant
+        applicant = Applicant(user_id=user.id, name=username)
+        db.session.add(applicant)
+        db.session.commit()
+        applicant_id = applicant.id
+
+    claims = {"user_id": user.id, "is_admin": user.is_admin}
+    access = create_access_token(identity=user.email, additional_claims=claims)
+    refresh = create_refresh_token(identity=user.email, additional_claims=claims)
+    return jsonify({
+        "user": {"id": user.id, "username": user.username, "email": user.email, "is_admin": user.is_admin, "applicant_id": applicant_id},
+        "access_token": access,
+        "refresh_token": refresh
+    }), 201
+
+@auth_bp.post("/login")
+def login():
+    data = request.get_json() or {}
+    email = data.get("email")
+    password = data.get("password")
+    if not all([email, password]):
+        return jsonify({"error": "email and password are required"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.check_password(password):
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    claims = {"user_id": user.id, "is_admin": user.is_admin}
+    access = create_access_token(identity=user.email, additional_claims=claims)
+    refresh = create_refresh_token(identity=user.email, additional_claims=claims)
+    return jsonify({
+        "user": {"id": user.id, "username": user.username, "email": user.email, "is_admin": user.is_admin, "applicant_id": user.applicant.id if user.applicant else None},
+        "access_token": access, "refresh_token": refresh
+    }), 200
+
+@auth_bp.post("/refresh")
+@jwt_required(refresh=True)
+def refresh():
+    claims = get_jwt()
+    identity = claims.get("sub")
+    new_access = create_access_token(identity=identity, additional_claims={
+        "user_id": claims.get("user_id"),
+        "is_admin": claims.get("is_admin", False)
+    })
+    return jsonify({"access_token": new_access}), 200
+
+@auth_bp.get("/me")
+@jwt_required()
+def me():
+    claims = get_jwt()
+    return jsonify({
+        "email": claims.get("sub"),
+        "user_id": claims.get("user_id"),
+        "is_admin": claims.get("is_admin", False),
+        "applicant_id": User.query.get(claims.get("user_id")).applicant.id if User.query.get(claims.get("user_id")).applicant else None
+    }), 200
+
+--- סוף של Routers/auth_router.py ---
+
+
+--- התחלה של Routers/users_router.py ---
+from flask import Blueprint, request, jsonify
+from extensions import db
+from Models.user import User
+
+users_bp = Blueprint("users", __name__, url_prefix="/users")
+
+@users_bp.route('/', methods=['GET'])
+def list_users():
+    rows = User.query.order_by(User.id.desc()).all()
+    return jsonify([
+        {
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "is_admin": u.is_admin
+        } for u in rows
+    ]), 200
+
+@users_bp.route('/<int:id>', methods=['GET'])    #Get user by id
+def get_user_by_id(id):
+    user = User.query.get(id)  # fetch by primary key
+    if not user:
+        return jsonify({"error": "The user doesn't exist"}), 404
+    return jsonify({
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "is_admin": user.is_admin
+    }), 200
+
+@users_bp.route('/<int:id>', methods=['PUT'])
+def update_user_by_id(id):
+    user = User.query.get(id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json() or {}
+
+    # Update fields if they exist in the model
+    if "username" in data:
+        user.username = data["username"]
+    if "email" in data:
+        user.email = data["email"]
+    if "is_admin" in data:
+        if data["is_admin"] in [True, False]:
+            user.is_admin = data["is_admin"]
+
+    db.session.commit()
+
+    return jsonify({
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "is_admin": user.is_admin
+    }), 200
+
+@users_bp.route('/<int:id>', methods=['DELETE'])
+def delete_user_by_id(id):
+    user = User.query.get(id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    db.session.delete(user)
+    db.session.commit()
+
+    return jsonify({"message": "User deleted successfully"}), 200
+
+@users_bp.route('/', methods=['POST'])
+def create_user():
+    data = request.get_json() or {}
+
+    if isinstance(data, list):
+        users = []
+        for item in data:
+            if not all(key in item for key in ("username", "email")):
+                return jsonify({"error": "Missing required fields"}), 400
+            user = User(
+                username=item["username"],
+                email=item["email"],
+                is_admin=item.get("is_admin", False),
+                password_hash=item.get("password_hash", "default_hash")
+            )
+            db.session.add(user)
+            users.append(user)
+        db.session.commit()
+        return jsonify([{
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "is_admin": u.is_admin
+        } for u in users]), 201
+    else:
+        if not all(key in data for key in ("username", "email")):
+            return jsonify({"error": "Missing required fields"}), 400
+        user = User(
+            username=data["username"],
+            email=data["email"],
+            is_admin=data.get("is_admin", False),
+            password_hash=data.get("password_hash", "default_hash")
+        )
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "is_admin": user.is_admin
+        }), 201
+
+
+
+--- סוף של Routers/users_router.py ---
+
+
+--- התחלה של Routers/application_router.py ---
+from flask import Blueprint, request, jsonify
+from extensions import db
+from Models.application import Application
+from Models.job import Job
+from Models.applicant import Applicant
+from services import score_computing
+
+apply_bp = Blueprint("apply", __name__, url_prefix="/apply")
+
+@apply_bp.post("/<int:job_id>")
+def apply_to_job(job_id):
+    data = request.get_json() or {}
+    user_id = data.get("applicant_id")
+    if not user_id:
+        return jsonify({"error": "applicant_id is required"}), 400
+
+    job = Job.query.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+
+    applicant = Applicant.query.filter_by(user_id=user_id).first()
+    if not applicant:
+        return jsonify({"error": "Applicant not found"}), 404
+
+    application = Application(
+        job_id=job.id,
+        applicant_id=applicant.id,
+        status=data.get("status", "pending"),
+    )
+    db.session.add(application)
+    db.session.flush()
+    application.publisher_id = job.publisher_id
+    application.score = score_computing.compute_application_score(applicant.id, job.id)
+    db.session.commit()
+
+    return jsonify({
+        "id": application.id,
+        "job_id": application.job_id,
+        "applicant_id": application.applicant_id,
+        "publisher_id": application.publisher_id,
+        "status": application.status,
+        "score": application.score
+    }), 201
+
+@apply_bp.route("/user/<int:user_id>", methods=["GET"])
+def get_applications_for_applicant(user_id):
+    applicant = Applicant.query.filter_by(user_id=user_id).first()
+    if not applicant:
+        return jsonify({"error": "Applicant not found"}), 404
+    applications = Application.query.filter_by(applicant_id=applicant.id).all()
+    if not applications:
+        return jsonify({"error": "No applications found for this applicant"}), 404
+
+    result = [
+        {
+            "id": app.id,
+            "job_id": app.job_id,
+            "description": Job.query.get(app.job_id).description if Job.query.get(app.job_id) else None,
+            "job_title": Job.query.get(app.job_id).title if Job.query.get(app.job_id) else None,
+            "publisher_id": app.publisher_id,
+            "applicant_name": applicant.name,
+            "status": app.status,
+            "score": app.score,
+        }
+        for app in applications
+    ]
+
+    return jsonify(result), 200
+
+@apply_bp.route("/publisher/<int:publisher_id>", methods=["GET"])
+def get_applications_for_publisher(publisher_id):
+    applications = Application.query.filter_by(publisher_id=publisher_id).all()
+    if not applications:
+        return jsonify({"error": "No applications found for this publisher"}), 404
+
+    result = []
+    for app in applications:
+        job = Job.query.get(app.job_id)
+        applicant = Applicant.query.get(app.applicant_id)
+        result.append({
+            "id": app.id,
+            "job_id": app.job_id,
+            "job_title": job.title if job else None,
+            "job_description": job.description if job else None,
+            "applicant_id": applicant.id if applicant else None,
+            "applicant_name": applicant.name if applicant else None,
+            "status": app.status,
+            "score": app.score,
+        })
+
+    return jsonify(result), 200
+
+--- סוף של Routers/application_router.py ---
+
+
+--- התחלה של Routers/__init__.py ---
+
+--- סוף של Routers/__init__.py ---
+
+
+--- התחלה של Routers/job_router.py ---
+from flask import Blueprint, request, jsonify
+
+from Models import User
+from extensions import db
+from Models.job import Job
+from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
+from services.auth_utils import admin_required
+
+jobs_bp = Blueprint("jobs", __name__, url_prefix="/jobs")
+
+@jobs_bp.get('/')
+@jwt_required()
+def list_jobs():
+    claims = get_jwt()
+    is_admin = claims.get("is_admin", False)
+    user_id = claims.get("user_id")
+    # Admin can see only the jobs he published,
+    # regular users can see all jobs
+    if is_admin:
+        rows = Job.query.filter_by(publisher_id=user_id).all()
+    else:
+        rows = Job.query.all()
+    return jsonify([
+        {
+            "id": j.id,
+            "title": j.title,
+            "employment_type": j.employment_type,
+            "work_location": j.work_location,
+            "description": j.description,
+            "required_technologies": j.required_technologies,
+            "required_experience": j.required_experience,
+            "is_open": j.is_open
+        } for j in rows
+    ]), 200
+
+@jobs_bp.get("/<int:id>")    #Get job by id
+def get_by_id(id):
+    job = Job.query.get(id)  # fetch by primary key
+    if not job:
+        return jsonify({"error": "The job doesn't exist"}), 404
+
+    return jsonify({
+        "id": job.id,
+        "title": job.title,
+        "employment_type": job.employment_type,
+        "work_location": job.work_location,
+        "description": job.description,
+        "required_technologies": job.required_technologies,
+        "required_experience": job.required_experience,
+        "is_open": job.is_open
+    }), 200
+
+
+@jobs_bp.put("/<int:id>")
+def update_job_by_id(id):
+    job = Job.query.get(id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+
+    data = request.get_json() or {}
+
+    # Update fields if they exist in the model
+    if "title" in data:
+        job.title = data["title"]
+    if "employment_type" in data:
+        job.employment_type = data["employment_type"]
+    if "work_location" in data:
+        job.work_location = data["work_location"]
+    if "description" in data:
+        job.description = data["description"]
+    if "required_technologies" in data:
+        job.required_technologies = data["required_technologies"]
+    if "required_experience" in data:
+        job.required_experience = data["required_experience"]
+    if "is_open" in data:
+        job.is_open = bool(data["is_open"])
+
+    db.session.commit()
+
+    return jsonify({
+        "id": job.id,
+        "title": job.title,
+        "employment_type": job.employment_type,
+        "work_location": job.work_location,
+        "description": job.description,
+        "required_technologies": job.required_technologies,
+        "required_experience": job.required_experience,
+        "is_open": job.is_open,
+        "message": "Job updated successfully"
+    }), 200
+
+@jobs_bp.route("/", methods=["POST"])
+@jwt_required()
+@admin_required
+def create_job():
+    data = request.get_json() or {}
+    if isinstance(data, list):
+        jobs = []
+        for item in data:
+            if not item.get("title"):
+                return jsonify({"error": "Title is required"}), 400
+            job = Job(**item)
+            jobs.append(job)
+        db.session.add_all(jobs)
+        db.session.commit()
+        return jsonify([{"id": j.id, "title": j.title} for j in jobs]), 201
+    else:
+        if not data.get("title"):
+            return jsonify({"error": "Title is required"}), 400
+        job = Job(**data)
+        db.session.add(job)
+        db.session.commit()
+        return jsonify({"id": job.id, "title": job.title}), 201
+
+@jobs_bp.delete("/<int:id>")
+@jwt_required()
+@admin_required
+def delete_by_id(id):
+    job = Job.query.get(id)  # fetch by primary key
+    if not job:
+        return jsonify({"error": "The job doesn't exist"}), 404
+    db.session.delete(job)
+    db.session.commit()
+    return jsonify({"status": "Done", "message": f"Job {id} deleted!"}), 200
+
+
+--- סוף של Routers/job_router.py ---
+
+
+--- התחלה של Routers/applicant_router.py ---
+from flask import Blueprint, request, jsonify
+
+from Models import Application
+from extensions import db
+from Models.applicant import Applicant
+
+applicants_bp = Blueprint("applicants", __name__)
+@applicants_bp.get("")
+def applicants_list_jobs():
+    rows = Applicant.query.order_by(Applicant.id.desc()).all()
+    return jsonify([
+        {
+            "id": j.id,
+            "name": j.name,
+            "languages": j.languages,
+            "technologies": j.technologies,
+            "flagship_project": j.flagship_project,
+            "last_job": j.last_job,
+            "education": j.education,
+            "years_experience": j.years_experience,
+            "resume_path": j.resume_path
+        } for j in rows
+    ]), 200
+
+@applicants_bp.route("/", methods=["POST"])
+def create_applicant():
+    data = request.get_json()
+    if isinstance(data, list):
+        applicants = []
+        for item in data:
+            if not item.get("name") or not item.get("resume_path"):
+                return jsonify({"error": "Name and resume_path are required"}), 400
+            applicant = Applicant(**item)
+            applicants.append(applicant)
+        db.session.add_all(applicants)
+        db.session.commit()
+        return jsonify([{"id": a.id, "name": a.name} for a in applicants]), 201
+    else:
+        if not data.get("name") or not data.get("resume_path"):
+            return jsonify({"error": "Name and resume_path are required"}), 400
+        applicant = Applicant(**data)
+        db.session.add(applicant)
+        db.session.commit()
+        return jsonify({"id": applicant.id, "name": applicant.name}), 201
+
+
+
+@applicants_bp.get("/by_applicant/<int:id>")
+def get_applicant_by_id(id):
+    applicant = Applicant.query.get(id)
+    if not applicant:
+        return jsonify({"error": "Applicant not found"}), 404
+
+    return jsonify({
+        "id": applicant.id,
+        "name": applicant.name,
+        "languages": applicant.languages,
+        "technologies": applicant.technologies,
+        "flagship_project": applicant.flagship_project,
+        "last_job": applicant.last_job,
+        "education": applicant.education,
+        "years_experience": applicant.years_experience,
+        "resume_path": applicant.resume_path
+    }), 200
+
+@applicants_bp.route("/<int:job_id>",methods=["GET"])
+def getting_applicants_by_job_id(job_id):
+    applications = Application.query.filter_by(job_id=job_id).all()
+    if not applications:
+        return jsonify({"error": "No applications found for this job"}), 404
+
+    applicants_data = []
+    for app in applications:
+        applicant = Applicant.query.get(app.applicant_id)
+        if applicant:
+            applicants_data.append({
+                "id": applicant.id,
+                "name": applicant.name,
+                "languages": applicant.languages,
+                "technologies": applicant.technologies,
+                "flagship_project": applicant.flagship_project,
+                "last_job": applicant.last_job,
+                "education": applicant.education,
+                "years_experience": applicant.years_experience,
+                "resume_path": applicant.resume_path,
+                "application_status": app.status,
+                "application_score": app.score
+            })
+
+    return jsonify(applicants_data), 200
+
+@applicants_bp.get("/<int:job_id>/<int:applicant_id>")
+def getting_applicant_details_and_score(job_id, applicant_id):
+    application = Application.query.filter_by(job_id=job_id, applicant_id=applicant_id).first()
+    if not application:
+        return jsonify({"error": "Application not found"}), 404
+
+    applicant = Applicant.query.get(applicant_id)
+    if not applicant:
+        return jsonify({"error": "Applicant not found"}), 404
+    return jsonify({
+        "id": applicant.id,
+        "name": applicant.name,
+        "languages": applicant.languages,
+        "technologies": applicant.technologies,
+        "flagship_project": applicant.flagship_project,
+        "last_job": applicant.last_job,
+        "education": applicant.education,
+        "years_experience": applicant.years_experience,
+        "resume_path": applicant.resume_path,
+        "application_status": application.status,
+        "application_score": application.score
+    }), 200
+
+@applicants_bp.route("/job/<int:job_id>/applicant/<int:applicant_id>", methods=["DELETE"])
+def delete_application(job_id: int, applicant_id: int):
+    application = Application.query.filter_by(job_id=job_id, applicant_id=applicant_id).first()
+    if not application:
+        return jsonify({"error": "Application not found"}), 404
+
+    db.session.delete(application)
+    db.session.commit()
+    return jsonify({"message": "Application deleted",
+                    "job_id": job_id,
+                    "applicant_id": applicant_id
+                    }), 200
+
+@applicants_bp.route("/<int:id>", methods=["PUT"])
+def update_applicant(id):
+    applicant = Applicant.query.get(id)
+    if not applicant:
+        return jsonify({"error": "Applicant not found"}), 404
+
+    data = request.get_json() or {}
+
+    # Update fields if they exist in the model
+    applicant.name = data.get("name", applicant.name)
+    applicant.languages = data.get("languages", applicant.languages)
+    applicant.technologies = data.get("technologies", applicant.technologies)
+    applicant.flagship_project = data.get("flagship_project", applicant.flagship_project)
+    applicant.last_job = data.get("last_job", applicant.last_job)
+    applicant.education = data.get("education", applicant.education)
+    applicant.years_experience = data.get("years_experience", applicant.years_experience)
+    applicant.resume_path = data.get("resume_path", applicant.resume_path)
+
+    db.session.commit()
+
+    return jsonify({
+        "id": applicant.id,
+        "name": applicant.name,
+        "languages": applicant.languages,
+        "technologies": applicant.technologies,
+        "flagship_project": applicant.flagship_project,
+        "last_job": applicant.last_job,
+        "education": applicant.education,
+        "years_experience": applicant.years_experience,
+        "resume_path": applicant.resume_path,
+        "message": "Applicant updated successfully"
+    }), 200
+
+
+
+
+
+--- סוף של Routers/applicant_router.py ---
+
+
+--- התחלה של Models/__init__.py ---
+from .job import Job
+from .applicant import Applicant
+from .application import Application
+from .user import User
+
+__all__ = ["Job", "Applicant", "Application", "User"]
+
+--- סוף של Models/__init__.py ---
+
+
+--- התחלה של Models/job.py ---
+from extensions import db
+
+class Job(db.Model):
+    __tablename__ = "jobs"
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    employment_type = db.Column(db.String(50))      # Full/Partially
+    work_location = db.Column(db.String(50))        # Home/Office/Hybrid
+    description = db.Column(db.Text)
+    required_technologies = db.Column(db.Text)      # "AWS, Docker, K8s"
+    required_experience = db.Column(db.Integer)     # Experience in years
+    is_open = db.Column(db.Boolean, default=True)
+    publisher_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+
+    applications = db.relationship(
+        "Application",
+        back_populates="job",
+        cascade="all, delete-orphan"
+    )
+
+    publisher = db.relationship("User", back_populates="published_jobs")
+
+--- סוף של Models/job.py ---
+
+
+--- התחלה של Models/application.py ---
+from extensions import db
+
+class Application(db.Model):
+    __tablename__ = "applications"
+    id = db.Column(db.Integer, primary_key=True)
+    applicant_id = db.Column(db.Integer, db.ForeignKey("applicants.id"), nullable=False, index=True)
+    job_id = db.Column(db.Integer, db.ForeignKey("jobs.id"), nullable=False, index=True)
+    status = db.Column(db.String(50), default="pending")
+    score = db.Column(db.Float)
+
+    publisher_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+
+    applicant = db.relationship("Applicant", back_populates="applications")
+    job = db.relationship("Job", back_populates="applications")
+    publisher = db.relationship("User", back_populates="received_applications")
+
+--- סוף של Models/application.py ---
+
+
+--- התחלה של Models/user.py ---
+from extensions import db
+from werkzeug.security import generate_password_hash, check_password_hash
+#טבלת משתמשים למערכת
+class User(db.Model):
+    __tablename__ = "users"
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+
+    applicants = db.relationship("Applicant", back_populates="user", uselist=False)
+
+    published_jobs = db.relationship("Job", back_populates="publisher", cascade="all, delete-orphan")
+    received_applications = db.relationship("Application", back_populates="publisher", cascade="all, delete-orphan")
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+--- סוף של Models/user.py ---
+
+
+--- התחלה של Models/applicant.py ---
+# applicant table
+from enum import unique
+
+from extensions import db
+
+class Applicant(db.Model):
+    __tablename__ = "applicants"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True , nullable=True, index=True)
+
+    name = db.Column(db.String(200),nullable=False)
+    languages = db.Column(db.Text)          # "Python, Bash, Go"
+    technologies = db.Column(db.Text)       # "AWS, Docker, Kubernetes"
+    flagship_project = db.Column(db.Text)
+    last_job = db.Column(db.String(200))
+    education = db.Column(db.Text)
+    years_experience = db.Column(db.Integer)
+    resume_path = db.Column(db.Text)        # CV file path
+
+    applications = db.relationship("Application", back_populates="applicant", cascade="all, delete-orphan")
+    user = db.relationship("User", back_populates="applicants")
+--- סוף של Models/applicant.py ---
+
